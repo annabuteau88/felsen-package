@@ -10,13 +10,13 @@ import spikeinterface.extractors as se
 import spikeinterface.preprocessing as spre
 import spikeinterface.sorters as sorters
 from spikeinterface.core import write_binary_recording
+from scipy import stats
 
 
 def removeArtifacts(h5file, basePath, output, mode, optoTimes):
     """
     Use spike interface's remove_artifacts function to remove artifacts and save out a .dat file that can be kilosorted
     Base path must contain in it the Record Node 101 directory!
-    Hasn't been tested yet bc interfacing with anything processing related is annoying and out of the scope of this lol
     """
     session = AnalysisObject(h5file)
     recording = se.OpenEphysBinaryRecordingExtractor(basePath, stream_name=np.str_('Record Node 101#Neuropix-PXI-100.ProbeA-AP'))
@@ -30,7 +30,7 @@ def removeArtifacts(h5file, basePath, output, mode, optoTimes):
         optoListLabels.append('offset')     
     optoTimesTotal = np.array(optoTimesTotal)
     recording = spre.remove_artifacts(recording, np.around(optoTimesTotal*30000).astype(int), ms_before = 0.5,ms_after = 3, list_labels=optoListLabels, mode=mode)
-    write_binary_recording(recording, file_paths=[os.path.join(base, f'{output}{mode}artifact.dat')], dtype="int16")  # or "int16" depending on your analysis pipeline)
+    write_binary_recording(recording, file_paths=[os.path.join(basePath, f'{output}{mode}artifact.dat')], dtype="int16")  # or "int16" depending on your analysis pipeline)
     return
 
 def plotRawNeuropixelsData(t2plot, folderPath, datPath, vmin=None, vmax=None):
@@ -107,19 +107,21 @@ def runZetaTestForOpto(h5file, eventTimestamps, responseWindow, latencyMetric):
     session.save(f'zeta/optostim/latency', result[:, 1])
     return
 
-def defineOptoPopulation(h5file, clusterFile):
+def defineOptoPopulation(h5file, clusterFile, zetaOpto=None, ampCutoff=None, presenceRatio=None, firingRate=None, isiViol=None, qualityLabels=None):
     """
-    This function filters your population of neurons and pulls out premotor neurons based on ZETA test results
+    This function filters your population of neurons and pulls out opto-responsive neurons based on ZETA test results
     """
     session = AnalysisObject(h5file)
     spikeClustersFile = clusterFile
     uniqueSpikeClusters = np.unique(np.load(spikeClustersFile))
-    zetaOpto = session.load('zeta/optostim/p')
-    ampCutoff = session.load('metrics/ac')
-    presenceRatio = session.load('metrics/pr')
-    firingRate = session.load('metrics/fr')
-    isiViol = session.load('metrics/rpvr')
-    qualityLabels = session.load('metrics/ql')
+    if zetaOpto is None:
+        zetaOpto = session.load('zeta/optostim/p')
+    if ampCutoff is None:
+        ampCutoff = session.load('metrics/ac')
+        presenceRatio = session.load('metrics/pr')
+        firingRate = session.load('metrics/fr')
+        isiViol = session.load('metrics/rpvr')
+        qualityLabels = session.load('metrics/ql')
     optoUnitsZeta = list()
     for index, pVal in enumerate(zetaOpto):
         if pVal < 0.01:
@@ -133,3 +135,50 @@ def defineOptoPopulation(h5file, clusterFile):
                             optoUnitsZeta.append(unit)
 
     return optoUnitsZeta
+
+def defineOptoPopulationTTest(h5file, clusterFile, optoTimes, ampCutoff=None, presenceRatio=None, firingRate=None, isiViol=None, qualityLabels=None):
+    """
+    This function uses a t-test to pull out opto-responsive neurons
+    """
+    session = AnalysisObject(h5file)
+    population = session._population()
+    spikeClustersFile = clusterFile
+    responseWindow = [0.003, 0.008]
+    uniqueSpikeClusters = np.unique(np.load(spikeClustersFile))
+    if ampCutoff is None:
+        ampCutoff = session.load('metrics/ac')
+        presenceRatio = session.load('metrics/pr')
+        firingRate = session.load('metrics/fr')
+        isiViol = session.load('metrics/rpvr')
+        qualityLabels = session.load('metrics/ql')
+    pList = list()
+    clusterList = list()
+    for index, unit in enumerate(population):
+        real = list()
+        fake = list()
+        spikeTimes = unit.timestamps
+        if qualityLabels is not None and qualityLabels[index] in (0, 1):
+                    continue
+        if ampCutoff[index] <= 0.1:
+            if presenceRatio[index] >= 0.9:
+                if firingRate[index] >= 0.2:
+                    if isiViol[index] <= 0.5:
+                        for time in optoTimes:
+                            start = time + responseWindow[0]
+                            end = time + responseWindow[1]
+                            mask = np.logical_and(spikeTimes > start, spikeTimes < end)
+                            response = len(spikeTimes[mask])/0.005
+                            real.append(response)
+                        for i in range(len(optoTimes)):
+                            startFake = np.random.uniform(np.min(optoTimes), np.max(optoTimes))
+                            endFake = startFake + 0.005
+                            maskFake = np.logical_and(spikeTimes > startFake, spikeTimes < endFake)
+                            responseFake = len(spikeTimes[maskFake])/0.005
+                            fake.append(responseFake)
+                        stat, p = stats.ttest_rel(real, fake, nan_policy='omit')
+                        pList.append(p)
+                        clusterList.append(unit.cluster)
+    return clusterList, pList
+
+
+

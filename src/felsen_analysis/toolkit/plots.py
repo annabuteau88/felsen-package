@@ -85,9 +85,9 @@ def plotUnitDepth(depthDict, saveFig=True):
     Plots depth of units, color coded by type, across sessions
     """
     fig, ax = plt.subplots(figsize=(4,10))
-    plt.scatter([random.random() for d in range(len(depthDict['premotor']))], depthDict['premotor'], color='magenta', label='Premotor')
-    plt.scatter([random.random() for d in range(len(depthDict['visual']))], depthDict['visual'], color='limegreen', label='Visual')
-    plt.scatter([random.random() for d in range(len(depthDict['visuomotor']))], depthDict['visuomotor'], color='blueviolet', label='Visuomotor')
+    plt.scatter([random.random() for d in range(len(depthDict['premotor']))], depthDict['premotor'], color='magenta')
+    plt.scatter([random.random() for d in range(len(depthDict['visual']))], depthDict['visual'], color='limegreen')
+    plt.scatter([random.random() for d in range(len(depthDict['visuomotor']))], depthDict['visuomotor'], color='blueviolet')
     plt.xlim(-0.5, 1.5)
     plt.ylim(0, 350)
     plt.xticks([])
@@ -95,7 +95,6 @@ def plotUnitDepth(depthDict, saveFig=True):
     plt.yticks([0, 100, 200, 300], [0, 1, 2, 3])
     ax.tick_params(axis='y', labelsize=18)
     plt.ylabel('Unit Depth (mm)', fontsize=20)
-    plt.legend(fontsize=15)
     if saveFig == True:
         plt.savefig(f'unitDepth', format="svg")
     return fig, ax
@@ -104,24 +103,21 @@ def plotUnitDepthOverBrain(coordDict, saveFig=True):
     """
     Uses 2D coordinates to plot unit location over real brain
     """
+    fig, ax = plt.subplots()
     ul.loadAllData(path='/home/jbhunt/Downloads/structure_graph_with_sets.json')
     section = ul.VOLUME[900, :, :]
-    plt.imshow(np.transpose(section), cmap='Greys', vmin=0, vmax=255)
+    ax.imshow(np.transpose(section), cmap='Greys', vmin=0, vmax=255)
     for i, point in enumerate(coordDict['premotor']):
-        plt.scatter(coordDict['premotor'][i][0] + random.uniform(0, 10), coordDict['premotor'][i][1], color='magenta', s=5)
+        ax.scatter(coordDict['premotor'][i][0] + random.uniform(0, 10), coordDict['premotor'][i][1], color='magenta', s=10)
     for i, point in enumerate(coordDict['visual']):
-        plt.scatter(coordDict['visual'][i][0]+ random.uniform(0, 10), coordDict['visual'][i][1], color='limegreen', s=5)
+        ax.scatter(coordDict['visual'][i][0]+ random.uniform(0, 10), coordDict['visual'][i][1], color='limegreen', s=10)
     for i, point in enumerate(coordDict['visuomotor']):
-        plt.scatter(coordDict['visuomotor'][i][0]+ random.uniform(0, 10), coordDict['visuomotor'][i][1], color='blueviolet', s=5, alpha=0.5)
-    plt.scatter(0, 0, s=15, color='magenta', label='Premotor')
-    plt.scatter(0, 0, s=15, color='limegreen', label='Visual')
-    plt.scatter(0, 0, s=15, color='blueviolet', label='Visuomotor')
-    plt.xticks([])
-    plt.yticks([])
-    plt.xlim(200, 1000)
-    plt.ylim(500, 0)
-    plt.legend(fontsize=12, loc='upper left')
-    return
+        ax.scatter(coordDict['visuomotor'][i][0]+ random.uniform(0, 10), coordDict['visuomotor'][i][1], color='blueviolet', s=10)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_xlim(200, 1000)
+    ax.set_ylim(500, 0)
+    return fig, ax
 
 def plotRaster(eventTimes, spikeTimes, window, eventType):
     """
