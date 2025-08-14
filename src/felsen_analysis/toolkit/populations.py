@@ -1,4 +1,5 @@
 from felsen_analysis.toolkit.process import AnalysisObject
+from felsen_analysis.backend.helper import randmat
 import unit_localizer as ul
 import numpy as np
 from sklearn.decomposition import PCA
@@ -307,3 +308,64 @@ def getUnitCoords(h5file, premotorUnits, visualUnits, visuomotorUnits, coordDict
         elif unit.cluster in visuomotorUnits:
             coordDict['visuomotor'].append(coords)
     return coordDict
+
+def ROCpreference(a, b, num_repeats):
+    """
+    """
+    numThreshActual = 1000
+    numThreshPermuted = 50
+    minA = np.min(a)
+    minB = np.min(b)
+    maxA = np.max(a)
+    maxB = np.max(b)
+    if minA <= minB:
+        minFR = minA - 0.001
+    elif minB < minA:
+        minFR = minB - 0.001
+    if maxA >= maxB:
+        maxFR = maxA + 0.001
+    elif maxB > maxA:
+        maxFR = maxB + 0.001
+    thresholds = np.linspace(minFR, maxFR, num=numThreshActual) 
+    #icreates an array from min to max with step of numThresh 
+    # x-coordinates of ROC curve
+    #these are chatGPT but it seems to make sense
+    probALargerThanThresh = np.sum(np.tile(a, (numThreshActual, 1)).T > np.tile(thresholds, (len(a), 1)), axis=0, keepdims=True) / len(a)
+    # y-coordinates of ROC curve
+    probBLargerThanThresh = np.sum(np.tile(b, (numThreshActual, 1)).T > np.tile(thresholds, (len(b), 1)), axis=0, keepdims=True) / len(b)
+    probALargerThanThresh = np.fliplr(probALargerThanThresh)
+    probBLargerThanThresh = np.fliplr(probBLargerThanThresh)
+    rocArea = np.sum(np.diff(probALargerThanThresh) * 
+                  ((probBLargerThanThresh[:, :-1] + probBLargerThanThresh[:, 1:]) / 2))
+    pref = 2 * (rocArea - 0.5)
+    max_length = max(len(a), len(b))
+    a_padded = np.pad(a, (0, max_length - len(a)), mode='constant', constant_values=0)
+    b_padded = np.pad(b, (0, max_length - len(b)), mode='constant', constant_values=0)
+    permutedFR, I = randmat(np.tile(np.hstack([a_padded, b_padded]), (num_repeats, 1)).T, 1);
+    permutedA = permutedFR[:len(a), :]
+    permutedB = permutedFR[len(a):, :]
+    thresholdsPermuted = np.linspace(minFR, maxFR, num=numThreshPermuted)
+    replicated_permuted_a = np.repeat(permutedA[:, :, np.newaxis], len(thresholdsPermuted), axis=2)
+    reshaped_thresholds = thresholdsPermuted[np.newaxis, np.newaxis, :]
+    comparison = replicated_permuted_a > reshaped_thresholds
+    probPermutedALargerThanThresh = np.sum(comparison, axis=0) / permutedA.shape[0]
+    replicated_permuted_b = np.repeat(permutedB[:, :, np.newaxis], len(thresholdsPermuted), axis=2)
+    reshaped_thresholdsb = thresholdsPermuted[np.newaxis, np.newaxis, :]
+    comparisonb = replicated_permuted_b > reshaped_thresholdsb
+    probPermutedBLargerThanThresh = np.sum(comparisonb, axis=0) / permutedB.shape[0]
+    probPermutedALargerThanThresh = np.squeeze(probPermutedALargerThanThresh)
+    probPermutedBLargerThanThresh = np.squeeze(probPermutedBLargerThanThresh)
+    probPermutedALargerThanThresh = np.fliplr(probPermutedALargerThanThresh)
+    probPermutedBLargerThanThresh = np.fliplr(probPermutedBLargerThanThresh)
+    rocPermutedArea = np.sum(np.diff(probPermutedALargerThanThresh, axis=1) * 
+                  ((probPermutedBLargerThanThresh[:, :-1] + probPermutedBLargerThanThresh[:, 1:]) / 2), axis=1)
+    prefPermuted = 2 * (rocPermutedArea - 0.5)
+    try:
+        tmp = np.where(pref > sorted(prefPermuted))[0][-1] / num_repeats
+    except:
+        tmp = 0
+    if tmp > 0.5:
+        pVal = 1 - tmp;
+    else:
+        pVal = tmp;
+    return pref, pVal
