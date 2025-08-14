@@ -1,6 +1,6 @@
 [project]
 name = "felsen-analysis"
-version = "0.1.7"
+version = "0.1.8"
 description = ""
 authors = [
     {name = "annabuteau",email = "anna.buteau@cuanschutz.edu"}

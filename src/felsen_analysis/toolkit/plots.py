@@ -99,12 +99,12 @@ def plotUnitDepth(depthDict, saveFig=True):
         plt.savefig(f'unitDepth', format="svg")
     return fig, ax
 
-def plotUnitDepthOverBrain(coordDict, saveFig=True):
+def plotUnitDepthOverBrain(coordDict, allenFile, saveFig=True):
     """
     Uses 2D coordinates to plot unit location over real brain
     """
     fig, ax = plt.subplots()
-    ul.loadAllData(path='/home/jbhunt/Downloads/structure_graph_with_sets.json')
+    ul.loadAllData(path=allenFile)
     section = ul.VOLUME[900, :, :]
     ax.imshow(np.transpose(section), cmap='Greys', vmin=0, vmax=255)
     for i, point in enumerate(coordDict['premotor']):

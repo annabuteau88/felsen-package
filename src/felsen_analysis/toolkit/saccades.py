@@ -266,3 +266,41 @@ def generateSaccadeMetricArray(h5file, ampList, startList, endList):
     sacMetrics[:, 1] = startList
     sacMetrics[:, 2] = endList
     return sacMetrics
+
+def binFiringRatesTrialByTrial(z, ampList, startList, endList, unit, binsize):
+    """
+    Puts firing rates for all saccades for a given unit into bins, split up by metrics
+    Preps data to plot a single unit example of firing rate by saccade metric
+    Same as other binning firing rates function returns all firing rates for all trials, not an average
+    Also doesn't return bin starts bc idc
+    """
+    a = sorted(ampList)
+    s = sorted(startList)
+    e = sorted(endList)
+    ampFR = list()
+    startFR = list()
+    endFR = list()
+    lists = [np.array(ampList), np.array(startList), np.array(endList)]
+    for i, feature in enumerate([a, s, e]):
+        bins = np.arange(0, len(feature), len(feature)/binsize)
+        for k in bins:
+            j = int(k)
+            values = feature[j:int(j+len(feature)/binsize)]
+            inds = list()
+            for value in values:
+                ind = np.where(lists[i] == value)[0]
+                if ind.shape == (1,):
+                    inds.append(int(ind))
+                elif ind.shape == (0,):
+                    continue
+                else:
+                    for n in ind:
+                        inds.append(int(n))         
+            data = z[unit, inds]
+            if i == 0:
+                ampFR.append(data)
+            elif i == 1:
+                startFR.append(data)
+            elif i == 2:
+                endFR.append(data)
+    return ampFR, startFR, endFR

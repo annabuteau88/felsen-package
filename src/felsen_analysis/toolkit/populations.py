@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from scipy.ndimage.filters import gaussian_filter1d
 
 
-def defineQualityUnits(h5file, clusterFile):
+def defineQualityUnits(h5file, clusterFile, ampCutoff=None, presenceRatio=None, firingRate=None, isiViol=None, qualityLabels=None):
     """
     This function filters all units by quality metrics and returns a list of unit cluster numbers assigned to good quality units
     Not necessary to use if using one of the definePopulation functions as it is built in to those functions (ie definePremotorPopulation)
@@ -14,11 +14,12 @@ def defineQualityUnits(h5file, clusterFile):
     """
     session = AnalysisObject(h5file)
     population = session._population()
-    ampCutoff = session.load('metrics/ac')
-    presenceRatio = session.load('metrics/pr')
-    firingRate = session.load('metrics/fr')
-    isiViol = session.load('metrics/rpvr')
-    qualityLabels = session.load('metrics/ql')
+    if ampCutoff is None:
+        ampCutoff = session.load('metrics/ac')
+        presenceRatio = session.load('metrics/pr')
+        firingRate = session.load('metrics/fr')
+        isiViol = session.load('metrics/rpvr')
+        qualityLabels = session.load('metrics/ql')
     qualityUnits = list()
     for index, unit in enumerate(population):
         if qualityLabels is not None and qualityLabels[index] in (0, 1):
@@ -30,24 +31,28 @@ def defineQualityUnits(h5file, clusterFile):
                     qualityUnits.append(unit.cluster)
     return qualityUnits
 
-def definePremotorPopulation(h5file, clusterFile):
+def definePremotorPopulation(h5file, clusterFile, allenFile=None, labels=None, zetaNasal=None, zetaTemporal=None, ampCutoff=None, presenceRatio=None, firingRate=None, isiViol=None, qualityLabels=None):
     """
     This function filters your population of neurons and pulls out premotor neurons based on ZETA test results
     """
     session = AnalysisObject(h5file)
-    labels = session.load('nptracer/labels')
-    brainAreas = ul.translateBrainAreaIdentities(labels, '/home/jbhunt/Downloads/structure_graph_with_sets.json') 
-
-    #spikeClustersFile = session.home.joinpath('ephys/sorting/manual/spike_clusters.npy') #fix
+    if labels is None:
+        labels = session.load('nptracer/labels')
+    if allenFile is None:
+        brainAreas = ul.translateBrainAreaIdentities(labels) 
+    else:
+        brainAreas = ul.translateBrainAreaIdentities(labels, allenFile) 
     spikeClustersFile = clusterFile
     uniqueSpikeClusters = np.unique(np.load(spikeClustersFile))
-    zetaNasal = session.load('zeta/saccade/nasal/p')
-    zetaTemporal = session.load('zeta/saccade/temporal/p')
-    ampCutoff = session.load('metrics/ac')
-    presenceRatio = session.load('metrics/pr')
-    firingRate = session.load('metrics/fr')
-    isiViol = session.load('metrics/rpvr')
-    qualityLabels = session.load('metrics/ql')
+    if zetaNasal is None:
+        zetaNasal = session.load('zeta/saccade/nasal/p')
+        zetaTemporal = session.load('zeta/saccade/temporal/p')
+    if ampCutoff is None:
+        ampCutoff = session.load('metrics/ac')
+        presenceRatio = session.load('metrics/pr')
+        firingRate = session.load('metrics/fr')
+        isiViol = session.load('metrics/rpvr')
+        qualityLabels = session.load('metrics/ql')
     premotorUnitsZeta = list()
     for index, pVal in enumerate(zetaNasal):
         if brainAreas[index] in ['SCsg','SCop', 'SCig', 'SCiw', 'SCdg']:
@@ -95,23 +100,29 @@ def defineVisualPopulationExclusive(h5file, clusterFile):
             visualUnitsExclusive.append(unit)
     return visualUnitsExclusive
     
-def defineVisualPopulation(h5file, clusterFile):
+def defineVisualPopulation(h5file, clusterFile, allenFile=None, labels=None, zetaLeft=None, zetaRight=None, ampCutoff=None, presenceRatio=None, firingRate=None, isiViol=None, qualityLabels=None):
     """
     This function filters your population of neurons and pulls out visual neurons based on ZETA test results
     """
     session = AnalysisObject(h5file)
-    labels = session.load('nptracer/labels')
+    if labels is None:
+        labels = session.load('nptracer/labels')
     #spikeClustersFile = session.home.joinpath('ephys/sorting/manual/spike_clusters.npy')
     spikeClustersFile = clusterFile
     uniqueSpikeClusters = np.unique(np.load(spikeClustersFile))
-    brainAreas = ul.translateBrainAreaIdentities(labels) 
-    zetaLeft = session.load('zeta/probe/left/p')
-    zetaRight = session.load('zeta/probe/right/p')
-    ampCutoff = session.load('metrics/ac')
-    presenceRatio = session.load('metrics/pr')
-    firingRate = session.load('metrics/fr')
-    isiViol = session.load('metrics/rpvr')
-    qualityLabels = session.load('metrics/ql')
+    if allenFile is None:
+        brainAreas = ul.translateBrainAreaIdentities(labels) 
+    else:
+        brainAreas = ul.translateBrainAreaIdentities(labels, allenFile)
+    if zetaLeft is None:
+        zetaLeft = session.load('zeta/probe/left/p')
+        zetaRight = session.load('zeta/probe/right/p')
+    if ampCutoff is None:
+        ampCutoff = session.load('metrics/ac')
+        presenceRatio = session.load('metrics/pr')
+        firingRate = session.load('metrics/fr')
+        isiViol = session.load('metrics/rpvr')
+        qualityLabels = session.load('metrics/ql')
     visualUnitsZeta = list()
     for index, pVal in enumerate(zetaLeft):
         if brainAreas[index] in ['SCsg','SCop', 'SCig', 'SCiw', 'SCdg']:
@@ -194,15 +205,18 @@ def createTrialArray(h5file, timeBins, units, trials):
         trialList.append(unitArray)
     return trialList
 
-def specifyTrialTypes(h5file, saccade=True): 
+def specifyTrialTypes(h5file, saccade=True, sacLabels=None, tts=None): 
     """
     Lets you specify what different trial types you want to measure population responses to
     """
     session = AnalysisObject(h5file)
     if saccade==True:
-        trial_type_tmp = session.load('saccades/predicted/left/labels') #contra = 1, ipsi = -1
+        if sacLabels is None:
+            sacLabels = session.load('saccades/predicted/left/labels') #contra = 1, ipsi = -1
+        trial_type_tmp = sacLabels
     elif saccade==False:
-        tts = session.load('stimuli/dg/probe/tts')
+        if tts is None:
+            tts = session.load('stimuli/dg/probe/tts')
         typeCode = list() #perisaccadic = 0, extrasaccadic = 2
         for t in tts:
             if abs(t) < 0.1:
@@ -272,12 +286,13 @@ def getUnitDepth(h5file, premotorUnits, visualUnits, visuomotorUnits, depthDict=
             depthDict['visuomotor'].append(depth)
     return depthDict
 
-def getUnitCoords(h5file, premotorUnits, visualUnits, visuomotorUnits, coordDict=None):
+def getUnitCoords(h5file, premotorUnits, visualUnits, visuomotorUnits, coordDict=None, points=None):
     """
     Function that returns the coordinates for each unit in a recording & a list of identities for easy indexing
     """
     session = AnalysisObject(h5file)
-    points = session.load('nptracer/points')
+    if points is None:
+        points = session.load('nptracer/points')
     population = session._population()
     if coordDict is None:
         coordDict = {identity:[] for identity in ['premotor', 'visual', 'visuomotor']}
