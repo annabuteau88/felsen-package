@@ -13,24 +13,28 @@ from spikeinterface.core import write_binary_recording
 from scipy import stats
 
 
-def removeArtifacts(h5file, basePath, output, mode, optoTimes):
+def removeArtifacts(basePath, output, mode, optoTimes, ms_before, ms_after, offsets=True):
     """
     Use spike interface's remove_artifacts function to remove artifacts and save out a .dat file that can be kilosorted
     Base path must contain in it the Record Node 101 directory!
     """
-    session = AnalysisObject(h5file)
     recording = se.OpenEphysBinaryRecordingExtractor(basePath, stream_name=np.str_('Record Node 101#Neuropix-PXI-100.ProbeA-AP'))
     optoTimesTotal = list()
     optoListLabels = list()
-    for onset in optoTimes:
-        offset = onset + 0.01
-        optoTimesTotal.append(onset)
-        optoTimesTotal.append(offset)
-        optoListLabels.append('onset')
-        optoListLabels.append('offset')     
-    optoTimesTotal = np.array(optoTimesTotal)
-    recording = spre.remove_artifacts(recording, np.around(optoTimesTotal*30000).astype(int), ms_before = 0.5,ms_after = 3, list_labels=optoListLabels, mode=mode)
-    write_binary_recording(recording, file_paths=[os.path.join(basePath, f'{output}{mode}artifact.dat')], dtype="int16")  # or "int16" depending on your analysis pipeline)
+    if offsets == True:
+        for onset in optoTimes:
+            offset = onset + 0.01
+            optoTimesTotal.append(onset)
+            optoTimesTotal.append(offset)
+            optoListLabels.append('onset')
+            optoListLabels.append('offset')     
+        optoTimesTotal = np.array(optoTimesTotal)
+    else:
+        optoTimesTotal = np.array(optoTimes)
+        for onset in optoTimes:
+            optoListLabels.append('onset')
+    removed = spre.remove_artifacts(recording, np.around(optoTimesTotal*30000).astype(int), ms_before = ms_before,ms_after = ms_after, list_labels=optoListLabels, mode=mode)
+    write_binary_recording(removed, file_paths=[os.path.join(basePath, f'{output}{mode}artifact.dat')], dtype="int16")  # or "int16" depending on your analysis pipeline)
     return
 
 def plotRawNeuropixelsData(t2plot, folderPath, datPath, vmin=None, vmax=None):
