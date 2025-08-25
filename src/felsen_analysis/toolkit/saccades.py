@@ -130,6 +130,8 @@ def calculateSaccadeEndPoint(h5file, saccades, pose=None, frameTimes=None, total
             continue
         relativeEnd = abs(frameTimes - endTime)
         endShape = np.where(relativeEnd == np.min(relativeEnd))[0].shape[0]
+        print(endShape)
+        
         if endShape == 2:
             endIndex = np.where(relativeEnd == np.min(relativeEnd))[0][0]
         else:

@@ -13,27 +13,33 @@ from spikeinterface.core import write_binary_recording
 from scipy import stats
 
 
-def removeArtifacts(basePath, output, mode, optoTimes, ms_before, ms_after, offsets=True):
+def removeArtifacts(basePath, output, mode, optoTimes, ms_before, ms_after, scale_amplitude=None, time_jitter=None, offsets=True):
     """
     Use spike interface's remove_artifacts function to remove artifacts and save out a .dat file that can be kilosorted
     Base path must contain in it the Record Node 101 directory!
     """
     recording = se.OpenEphysBinaryRecordingExtractor(basePath, stream_name=np.str_('Record Node 101#Neuropix-PXI-100.ProbeA-AP'))
+    sampling_rate = recording.get_sampling_frequency()
+    duration_seconds = recording.get_num_frames() / sampling_rate
+    print(duration_seconds)
     optoTimesTotal = list()
     optoListLabels = list()
     if offsets == True:
         for onset in optoTimes:
             offset = onset + 0.01
-            optoTimesTotal.append(onset)
-            optoTimesTotal.append(offset)
-            optoListLabels.append('onset')
-            optoListLabels.append('offset')     
+            if offset < duration_seconds:
+                optoTimesTotal.append(onset)
+                optoTimesTotal.append(offset)
+                optoListLabels.append('onset')
+                optoListLabels.append('offset')     
         optoTimesTotal = np.array(optoTimesTotal)
     else:
-        optoTimesTotal = np.array(optoTimes)
         for onset in optoTimes:
-            optoListLabels.append('onset')
-    removed = spre.remove_artifacts(recording, np.around(optoTimesTotal*30000).astype(int), ms_before = ms_before,ms_after = ms_after, list_labels=optoListLabels, mode=mode)
+            if onset < duration_seconds:
+                optoListLabels.append('onset')
+                optoTimesTotal.append(onset)
+        optoTimesTotal = np.array(optoTimesTotal)
+    removed = spre.remove_artifacts(recording, np.around(optoTimesTotal*30000).astype(int), ms_before = ms_before,ms_after = ms_after, list_labels=optoListLabels, mode=mode, scale_amplitude=scale_amplitude, time_jitter=time_jitter)
     write_binary_recording(removed, file_paths=[os.path.join(basePath, f'{output}{mode}artifact.dat')], dtype="int16")  # or "int16" depending on your analysis pipeline)
     return
 
